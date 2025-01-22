@@ -1,0 +1,22 @@
+Project "Go Hexagonal" {
+  database_type: 'PostgreSQL'
+}
+
+Enum "users_role_enum" {
+  "admin"
+  "cashier"
+}
+
+Table "users" {
+  "id" bigserial [pk, increment]
+  "name" varchar [not null]
+  "email" varchar [not null]
+  "password" varchar [not null]
+  "role" users_role_enum [default: "cashier"]
+  "created_at" timestamptz [not null, default: `now()`]
+  "updated_at" timestamptz [not null, default: `now()`]
+
+Indexes {
+  email [unique, name: "email"]
+}
+}
