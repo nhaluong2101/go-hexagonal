@@ -1,19 +1,19 @@
 package handlers
 
 import (
+	"github.com/bagashiz/go_hexagonal/internal/app/adapters/author"
 	"github.com/bagashiz/go_hexagonal/internal/app/core/ports"
 	"github.com/bagashiz/go_hexagonal/internal/app/infrastructure/configs"
-	"go.uber.org/fx"
-	"log/slog"
-	"strings"
-
 	"github.com/gin-contrib/cors"
+	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"github.com/go-playground/validator/v10"
 	"github.com/samber/slog-gin"
-	"github.com/swaggo/files"
-	"github.com/swaggo/gin-swagger"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+	"log/slog"
+	"os"
+	"strings"
+	"time"
 )
 
 // RouterHandler is a wrapper for HTTP router
@@ -21,9 +21,24 @@ type RouterHandler struct {
 	*gin.Engine
 }
 
+const logPath = "./logs/go.log"
+
+var logger *zap.Logger
+
+func setupLog() {
+	_, err := os.OpenFile(logPath, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return
+	}
+	c := zap.NewProductionConfig()
+	c.OutputPaths = []string{"stdout", logPath}
+	logger, _ = c.Build()
+}
+
 // NewRouterHandler creates a new HTTP router
 func NewRouterHandler(
 	config *configs.Container,
+	casbin *author.CasbinConfig,
 	token ports.TokenService,
 	userHandler *UserHandler,
 	authHandler *AuthHandler,
@@ -43,17 +58,14 @@ func NewRouterHandler(
 	router := gin.New()
 	router.Use(sloggin.New(slog.Default()), gin.Recovery(), cors.New(ginConfig))
 
-	// Custom validators
-	v, ok := binding.Validator.Engine().(*validator.Validate)
-	if ok {
-		if err := v.RegisterValidation("user_role", userRoleValidator); err != nil {
-			return nil, err
-		}
+	//POLICY
+	casbin.LoadPolicy()
 
-	}
-
-	// Swagger
-	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	//LOGGER
+	setupLog()
+	// Setting GIN to use zap as logger
+	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
+	router.Use(ginzap.RecoveryWithZap(logger, true))
 
 	v1 := router.Group("/v1")
 	{
@@ -62,16 +74,11 @@ func NewRouterHandler(
 			user.POST("/", userHandler.Register)
 			user.POST("/login", authHandler.Login)
 
-			authUser := user.Group("/").Use(authMiddleware(token))
+			authUser := user.Group("/").Use(TokenMiddleware(token), RoleMiddleware(casbin))
 			{
 				authUser.GET("/", userHandler.ListUsers)
 				authUser.GET("/:id", userHandler.GetUser)
 
-				admin := authUser.Use(adminMiddleware())
-				{
-					admin.PUT("/:id", userHandler.UpdateUser)
-					admin.DELETE("/:id", userHandler.DeleteUser)
-				}
 			}
 		}
 	}

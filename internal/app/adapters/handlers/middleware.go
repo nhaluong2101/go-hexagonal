@@ -1,31 +1,25 @@
 package handlers
 
 import (
+	"github.com/bagashiz/go_hexagonal/internal/app/adapters/author"
+	_constant "github.com/bagashiz/go_hexagonal/internal/app/core/constant"
 	"github.com/bagashiz/go_hexagonal/internal/app/core/models"
 	"github.com/bagashiz/go_hexagonal/internal/app/core/ports"
+	"github.com/bagashiz/go_hexagonal/internal/app/core/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-const (
-	// authorizationHeaderKey is the key for authorization header in the request
-	authorizationHeaderKey = "authorization"
-	// authorizationType is the accepted authorization type
-	authorizationType = "bearer"
-	// authorizationPayloadKey is the key for authorization payload in the context
-	authorizationPayloadKey = "authorization_payload"
-)
-
-// authMiddleware is a middleware to check if the user is authenticated
-func authMiddleware(token ports.TokenService) gin.HandlerFunc {
+// TokenMiddleware is a author to check if the user is authenticated
+func TokenMiddleware(token ports.TokenService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		authorizationHeader := ctx.GetHeader(authorizationHeaderKey)
+		authorizationHeader := ctx.GetHeader(_constant.AuthorizationHeaderKey)
 
 		isEmpty := len(authorizationHeader) == 0
 		if isEmpty {
 			err := models.ErrEmptyAuthorizationHeader
-			handleAbort(ctx, err)
+			utils.HandleAbort(ctx, err)
 			return
 		}
 
@@ -33,38 +27,46 @@ func authMiddleware(token ports.TokenService) gin.HandlerFunc {
 		isValid := len(fields) == 2
 		if !isValid {
 			err := models.ErrInvalidAuthorizationHeader
-			handleAbort(ctx, err)
+			utils.HandleAbort(ctx, err)
 			return
 		}
 
 		currentAuthorizationType := strings.ToLower(fields[0])
-		if currentAuthorizationType != authorizationType {
+		if currentAuthorizationType != _constant.AuthorizationType {
 			err := models.ErrInvalidAuthorizationType
-			handleAbort(ctx, err)
+			utils.HandleAbort(ctx, err)
 			return
 		}
 
 		accessToken := fields[1]
 		payload, err := token.VerifyToken(accessToken)
 		if err != nil {
-			handleAbort(ctx, err)
+			utils.HandleAbort(ctx, err)
 			return
 		}
 
-		ctx.Set(authorizationPayloadKey, payload)
+		ctx.Set(_constant.AuthorizationPayloadKey, payload)
 		ctx.Next()
 	}
 }
 
-// adminMiddleware is a middleware to check if the user is an admin
-func adminMiddleware() gin.HandlerFunc {
+func RoleMiddleware(casbin *author.CasbinConfig) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		payload := getAuthPayload(ctx, authorizationPayloadKey)
 
-		isAdmin := payload.Role == models.Admin
-		if !isAdmin {
+		payload := GetAuthPayload(ctx, _constant.AuthorizationPayloadKey)
+		sub := payload.Role
+		obj := ctx.Request.URL.Path
+		act := ctx.Request.Method
+
+		allowed, err := casbin.Enforcer.Enforce(sub, obj, act)
+		if err != nil {
+			err := models.ErrInternal
+			utils.HandleAbort(ctx, err)
+			return
+		}
+		if !allowed {
 			err := models.ErrForbidden
-			handleAbort(ctx, err)
+			utils.HandleAbort(ctx, err)
 			return
 		}
 

@@ -6,6 +6,8 @@ import (
 	"github.com/bagashiz/go_hexagonal/internal/app/adapters/storages/db/postgres"
 	"github.com/bagashiz/go_hexagonal/internal/app/core/ports"
 	"github.com/bagashiz/go_hexagonal/internal/app/infrastructure/configs"
+	"go.elastic.co/ecszap"
+	"go.uber.org/zap"
 	"log/slog"
 	"os"
 )
@@ -17,6 +19,14 @@ func Serve(
 	db *postgres.DB,
 	cache ports.CacheRepository,
 ) error {
+
+	encoderConfig := ecszap.NewDefaultEncoderConfig()
+	core := ecszap.NewCore(encoderConfig, os.Stdout, zap.DebugLevel)
+	logger := zap.New(core, zap.AddCaller()).With(zap.String("app", "go-elk")).With(zap.String("environment", "local"))
+
+	logger.Info("application log",
+		zap.Int("times", 1),
+	)
 
 	// Migrate database
 	var err = db.Migrate()

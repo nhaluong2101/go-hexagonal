@@ -38,6 +38,8 @@ type (
 		User       string
 		Password   string
 		Name       string
+		DSN        string
+		DriverName string
 	}
 	// HTTP contains all the environment variables for the http server
 	HTTP struct {
@@ -78,6 +80,8 @@ func NewContainer() (*Container, error) {
 		User:       os.Getenv("DB_USER"),
 		Password:   os.Getenv("DB_PASSWORD"),
 		Name:       os.Getenv("DB_NAME"),
+		DSN:        os.Getenv("DB_DSN"),
+		DriverName: os.Getenv("DB_DRIVER_NAME"),
 	}
 
 	http := &HTTP{
@@ -109,7 +113,7 @@ func ProvideRedis(container *Container) *Redis {
 }
 
 var Module = fx.Module(
-	"configs",
+	"configs-module",
 	fx.Provide(
 		NewContainer,
 		ProvideToken,

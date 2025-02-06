@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+
+  service:
+    networks:
+      - app_network
+    container_name: go_hexagonal_service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080 # Replace with your app's port
+#    env_file:
+#      - .env
+    environment:
+      - DB_CONNECTION=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=go_hexagonal
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_DRIVER_NAME=postgres
+      - DB_DSN="host=postgres port=5432 user=postgres password=postgres dbname=go_hexagonal sslmode=disable"
+    depends_on:
+      - postgres
+    labels:
+      co.elastic.logs/enabled: true
+
+  postgres:
+    networks:
+      - app_network
+    image: postgres:16-alpine
+    container_name: go_hexagonal_postgres
+    env_file:
+      - .env
+    ports:
+      - 5432:5432
+    volumes:
+      #- ./create-database.sql:/docker-entrypoint-initdb.d/init-db-01.sql
+      - postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "go_hexagonal"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d go_hexagonal -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    networks:
+      - app_network
+    image: redis:7-alpine
+    container_name: go_hexagonal_redis
+    ports:
+      - 6379:6379
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+#  elasticsearch:
+#    networks:
+#      - app_network
+#    image: docker.elastic.co/elasticsearch/elasticsearch:8.6.1
+#    volumes:
+#      - elasticsearch:/usr/share/elasticsearch/data
+#    environment:
+#      discovery.type: single-node
+#      xpack.security.enabled: false
+#    ports:
+#      - 9200:9200
+#      - 9300:9300
+#    restart: unless-stopped
+#    labels:
+#      co.elastic.logs/enabled: false
+#
+#  kibana:
+#    networks:
+#      - app_network
+#    image: docker.elastic.co/kibana/kibana:8.6.1
+#    environment:
+#      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+#    ports:
+#      - 5601:5601
+#    depends_on:
+#      - elasticsearch
+#    restart: unless-stopped
+#    labels:
+#      co.elastic.logs/enabled: false
+#
+#  logstash:
+#    networks:
+#      - app_network
+#    image: docker.elastic.co/logstash/logstash:8.6.1
+#    volumes:
+#      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+#    ports:
+#      - 5044:5044
+#    depends_on:
+#      - elasticsearch
+#    restart: unless-stopped
+#    labels:
+#      co.elastic.logs/enabled: false
+#
+#  filebeat:
+#    networks:
+#      - app_network
+#    image: docker.elastic.co/beats/filebeat:8.6.1
+#    user: root
+#    volumes:
+#      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+#      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+#      - /var/run/docker.sock:/var/run/docker.sock:ro
+#    depends_on:
+#      - logstash
+#    command: filebeat -e -strict.perms=false
+#    restart: unless-stopped
+#    labels:
+#      co.elastic.logs/enabled: false
+
+volumes:
+  elasticsearch:
+  postgres:
+    driver: local
+  redis:
+    driver: local
+
+networks:
+  app_network:

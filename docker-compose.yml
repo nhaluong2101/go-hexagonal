@@ -1,6 +1,22 @@
-version: "3.8"
+version: '3.8'
 
 services:
+
+  service:
+    container_name: go_hexagonal_service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080 # Replace with your app's exposed port
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      co.elastic.logs/enabled: true
+
   postgres:
     image: postgres:16-alpine
     container_name: go_hexagonal_postgres
@@ -9,7 +25,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ./create-database.sql:/docker-entrypoint-initdb.d/init-db-01.sql
+      #- ./create-database.sql:/docker-entrypoint-initdb.d/init-db-01.sql
       - postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: "${DB_USER}"
@@ -34,8 +50,66 @@ services:
       timeout: 5s
       retries: 3
 
+  elasticsearch:
+    container_name: go_hexagonal_es
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.6.1
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: false
+    ports:
+      - 9200:9200
+      - 9300:9300
+    restart: unless-stopped
+    labels:
+      co.elastic.logs/enabled: false
+
+  kibana:
+    container_name: go_hexagonal_kibana
+    image: docker.elastic.co/kibana/kibana:8.6.1
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    labels:
+      co.elastic.logs/enabled: false
+
+  logstash:
+    container_name: go_hexagonal_logstash
+    image: docker.elastic.co/logstash/logstash:8.6.1
+    volumes:
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    ports:
+      - 5044:5044
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    labels:
+      co.elastic.logs/enabled: false
+
+  filebeat:
+    container_name: go_hexagonal_filebeat
+    image: docker.elastic.co/beats/filebeat:8.6.1
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - logstash
+    command: filebeat -e -strict.perms=false
+    restart: unless-stopped
+    labels:
+      co.elastic.logs/enabled: false
+
 volumes:
+  elasticsearch:
   postgres:
     driver: local
   redis:
     driver: local
+

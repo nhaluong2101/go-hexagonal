@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/bagashiz/go_hexagonal/internal/app/core/models"
 	"github.com/bagashiz/go_hexagonal/internal/app/core/ports"
+	"github.com/bagashiz/go_hexagonal/internal/app/core/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
@@ -44,7 +45,7 @@ type registerRequest struct {
 func (uh *UserHandler) Register(ctx *gin.Context) {
 	var req registerRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		validationError(ctx, err)
+		utils.ValidationError(ctx, err)
 		return
 	}
 
@@ -56,13 +57,13 @@ func (uh *UserHandler) Register(ctx *gin.Context) {
 
 	_, err := uh.svc.Register(ctx, &user)
 	if err != nil {
-		handleError(ctx, err)
+		utils.HandleError(ctx, err)
 		return
 	}
 
-	rsp := newUserResponse(&user)
+	rsp := utils.NewUserResponse(&user)
 
-	handleSuccess(ctx, rsp)
+	utils.HandleSuccess(ctx, rsp)
 }
 
 // listUsersRequest represents the request body for listing users
@@ -87,28 +88,28 @@ type listUsersRequest struct {
 //	@Security		BearerAuth
 func (uh *UserHandler) ListUsers(ctx *gin.Context) {
 	var req listUsersRequest
-	var usersList []userResponse
+	var usersList []utils.UserResponse
 
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		validationError(ctx, err)
+		utils.ValidationError(ctx, err)
 		return
 	}
 
 	users, err := uh.svc.ListUsers(ctx, req.Skip, req.Limit)
 	if err != nil {
-		handleError(ctx, err)
+		utils.HandleError(ctx, err)
 		return
 	}
 
 	for _, user := range users {
-		usersList = append(usersList, newUserResponse(&user))
+		usersList = append(usersList, utils.NewUserResponse(&user))
 	}
 
 	total := uint64(len(usersList))
-	meta := newMeta(total, req.Limit, req.Skip)
+	meta := utils.NewMeta(total, req.Limit, req.Skip)
 	rsp := toMap(meta, usersList, "users")
 
-	handleSuccess(ctx, rsp)
+	utils.HandleSuccess(ctx, rsp)
 }
 
 // getUserRequest represents the request body for getting a user
@@ -133,27 +134,27 @@ type getUserRequest struct {
 func (uh *UserHandler) GetUser(ctx *gin.Context) {
 	var req getUserRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
-		validationError(ctx, err)
+		utils.ValidationError(ctx, err)
 		return
 	}
 
 	user, err := uh.svc.GetUser(ctx, req.ID)
 	if err != nil {
-		handleError(ctx, err)
+		utils.HandleError(ctx, err)
 		return
 	}
 
-	rsp := newUserResponse(user)
+	rsp := utils.NewUserResponse(user)
 
-	handleSuccess(ctx, rsp)
+	utils.HandleSuccess(ctx, rsp)
 }
 
 // updateUserRequest represents the request body for updating a user
 type updateUserRequest struct {
-	Name     string          `json:"name" binding:"omitempty,required" example:"John Doe"`
-	Email    string          `json:"email" binding:"omitempty,required,email" example:"test@example.com"`
-	Password string          `json:"password" binding:"omitempty,required,min=8" example:"12345678"`
-	Role     models.UserRole `json:"role" binding:"omitempty,required,user_role" example:"admin"`
+	Name     string `json:"name" binding:"omitempty,required" example:"John Doe"`
+	Email    string `json:"email" binding:"omitempty,required,email" example:"test@example.com"`
+	Password string `json:"password" binding:"omitempty,required,min=8" example:"12345678"`
+	Role     string `json:"role" binding:"omitempty,required,user_role" example:"admin"`
 }
 
 // UpdateUser godoc
@@ -176,14 +177,14 @@ type updateUserRequest struct {
 func (uh *UserHandler) UpdateUser(ctx *gin.Context) {
 	var req updateUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		validationError(ctx, err)
+		utils.ValidationError(ctx, err)
 		return
 	}
 
 	idStr := ctx.Param("id")
 	id, err := stringToUint64(idStr)
 	if err != nil {
-		validationError(ctx, err)
+		utils.ValidationError(ctx, err)
 		return
 	}
 
@@ -197,13 +198,13 @@ func (uh *UserHandler) UpdateUser(ctx *gin.Context) {
 
 	_, err = uh.svc.UpdateUser(ctx, &user)
 	if err != nil {
-		handleError(ctx, err)
+		utils.HandleError(ctx, err)
 		return
 	}
 
-	rsp := newUserResponse(&user)
+	rsp := utils.NewUserResponse(&user)
 
-	handleSuccess(ctx, rsp)
+	utils.HandleSuccess(ctx, rsp)
 }
 
 // deleteUserRequest represents the request body for deleting a user
@@ -230,17 +231,17 @@ type deleteUserRequest struct {
 func (uh *UserHandler) DeleteUser(ctx *gin.Context) {
 	var req deleteUserRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
-		validationError(ctx, err)
+		utils.ValidationError(ctx, err)
 		return
 	}
 
 	err := uh.svc.DeleteUser(ctx, req.ID)
 	if err != nil {
-		handleError(ctx, err)
+		utils.HandleError(ctx, err)
 		return
 	}
 
-	handleSuccess(ctx, nil)
+	utils.HandleSuccess(ctx, nil)
 }
 
 var UserModule = fx.Module(

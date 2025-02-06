@@ -1,28 +1,13 @@
-# build stage
-FROM golang:1.22-alpine AS build
+FROM golang:1.23-alpine
 
-# set working directory
 WORKDIR /app
 
-# copy source code
-COPY . .
-
-# install dependencies
+COPY go.mod go.sum ./
 RUN go mod download
 
-# build binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/gopos ./cmd/http/main.go
+COPY . .
+COPY .env .env
 
-# final stage
-FROM alpine:latest AS final
-LABEL maintainer="bagashiz"
+RUN go build -o /out/app ./cmd/main.go
 
-# set working directory
-WORKDIR /app
-
-# copy binary
-COPY --from=build /app/bin/gopos ./
-
-EXPOSE 8080
-
-ENTRYPOINT [ "./gopos" ]
+CMD ["/out/app"]

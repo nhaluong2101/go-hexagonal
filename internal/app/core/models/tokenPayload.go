@@ -8,5 +8,5 @@ import (
 type TokenPayload struct {
 	ID     uuid.UUID
 	UserID uint64
-	Role   UserRole
+	Role   string
 }

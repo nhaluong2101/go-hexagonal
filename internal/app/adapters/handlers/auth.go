@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/bagashiz/go_hexagonal/internal/app/core/ports"
+	"github.com/bagashiz/go_hexagonal/internal/app/core/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
@@ -39,20 +40,21 @@ type loginRequest struct {
 //	@Router			/users/login [post]
 func (ah *AuthHandler) Login(ctx *gin.Context) {
 	var req loginRequest
+	
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		validationError(ctx, err)
+		utils.ValidationError(ctx, err)
 		return
 	}
 
 	token, err := ah.svc.Login(ctx, req.Email, req.Password)
 	if err != nil {
-		handleError(ctx, err)
+		utils.HandleError(ctx, err)
 		return
 	}
 
-	rsp := newAuthResponse(token)
+	rsp := utils.NewAuthResponse(token)
 
-	handleSuccess(ctx, rsp)
+	utils.HandleSuccess(ctx, rsp)
 }
 
 var AuthModule = fx.Module(

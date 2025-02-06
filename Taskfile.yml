@@ -3,7 +3,6 @@
 version: "3"
 
 vars:
-  DBML_FILE: "./schema.dbml"
   DSN: "{{.DB_CONNECTION}}://{{.DB_USER}}:{{.DB_PASSWORD}}@{{.DB_HOST}}:{{.DB_PORT}}/{{.DB_NAME}}?sslmode=disable"
 
 dotenv:
@@ -32,13 +31,6 @@ tasks:
   service:down:
     desc: "Stop services"
     cmd: docker-compose down
-
-  db:docs:
-    desc: "Generate database documentation from DBML file"
-    cmd: dbdocs build {{.DBML_FILE}}
-    requires:
-      vars:
-        - DBML_FILE
 
   db:create:
     desc: "Create database if not exists"
@@ -99,7 +91,7 @@ tasks:
 
   build:
     desc: "Build binary"
-    cmd: go build -o ./bin/{{.APP_NAME}} ./cmd/http/main.go
+    cmd: go build -o ./bin/{{.APP_NAME}} ./cmd/main.go
     requires:
       vars:
         - APP_NAME
@@ -115,7 +107,7 @@ tasks:
     desc: "Generate swagger documentation"
     cmds:
       - swag fmt
-      - swag init -g ./cmd/http/main.go -o ./docs --parseInternal true
+      - swag init -g ./cmd/main.go -o ./docs --parseInternal true
 
   test:
     desc: "Run tests"

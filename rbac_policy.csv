@@ -1,0 +1,5 @@
+p, admin, /admin, GET
+p, user, /v1/users/, GET
+p, user, /v1/users/login, POST
+g, alice, admin
+g, bob, user
